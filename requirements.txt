@@ -1,0 +1,7 @@
+beautifulsoup4
+requests
+pandas
+fuzzywuzzy
+fuzzywuzzy[speedup]
+selenium
+tabulate
