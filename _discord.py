@@ -24,12 +24,6 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 # Replace with your bot's token
 TOKEN = os.getenv('BOT_TOKEN')
 
-# Replace with the ID of the specific channel
-SPECIFIC_CHANNEL_ID = os.getenv('CHANNEL_ID')
-
-# Phrase to react to
-TRIGGER_PHRASE = "Hello bot!"
-
 # Event for when the bot is ready
 @bot.event
 async def on_ready():
@@ -42,6 +36,7 @@ async def on_ready():
         
     try:
         valorant.update_matches()
+        valorant.update_odds()
     except Exception as e:
         print('An error occurred while updating matches:', e)
 
@@ -65,7 +60,7 @@ async def update(interaction: discord.Interaction, type: str, game: str='valoran
         state = 0
         for row in updated_matches.iterrows():
             match = row[1]
-            embed.add_field(name=f"{match['Event Series']}", value=f"{match['Event']}\n{match['Datetime']}\n[{match['Team A']} vs {match['Team B']}\n]({match['Match Link']})", inline=False)
+            embed.add_field(name=f"{match['Event Series']}", value=f"{match['Event']}\n{match['Datetime']}\n[{match['Team A']} vs {match['Team B']}\n]({match['Match Link']})", iawdawdnline=False)
         embed.set_footer(text=f"Showing matches {0} to {min(5, valorant.get_matches().shape[0])} of {valorant.get_matches().shape[0]}")
         await asyncio.sleep(5)
         msg = await interaction.followup.send(embed = embed)
@@ -120,7 +115,6 @@ async def update(interaction: discord.Interaction, type: str, game: str='valoran
         updated_odds = valorant.update_odds()
         await interaction.response.send_message(f"Updated odds for {game}!")
 
-
 # Helper function to generate match embeds
 def generate_match_embed(matches, state):
     embed = discord.Embed(title=f"**VALORANT** Upcoming Matches", color=0x03f8fc)
@@ -131,9 +125,19 @@ def generate_match_embed(matches, state):
     embed.set_footer(text=f"Showing matches {state} to {min(state + 5, matches.shape[0])} of {matches.shape[0]}")
     return embed
 
-@bot.tree.command(name="show")
+# Helper function to generate match embeds
+def generate_arbs_embed(odds, state):
+    embed = discord.Embed(title=f"**VALORANT** Upcoming Matches", color=0x03f8fc)
+    updated_matches = odds.sort_values(by='Datetime').iloc[state:min(state + 5, odds.shape[0])]
+    for row in updated_matches.iterrows():
+        match = row[1]
+        embed.add_field(name=f"{match['Event Series']}", value=f"{match['Event']}\n{match['Datetime']}\n[{match['Team A']} vs {match['Team B']}]({match['Match Link']})", inline=False)
+    embed.set_footer(text=f"Showing matches {state} to {min(state + 5, odds.shape[0])} of {odds.shape[0]}")
+    return embed
+
+@bot.tree.command(name="get")
 @app_commands.describe(type="Show matches or odds")
-async def show(interaction: discord.Interaction, type: str, game: str='valorant'):
+async def get(interaction: discord.Interaction, type: str, game: str='valorant'):
     if type == "matches":
         updated_matches = valorant.get_matches()
     
@@ -183,7 +187,19 @@ async def show(interaction: discord.Interaction, type: str, game: str='valorant'
                 break
     elif type == "odds":
         updated_odds = valorant.get_odds()
+        
+        updated_odds.head()
+        # embed = generate_match_embed(updated_odds, 0)
+        # await interaction.response.send_message(embed = embed)
+        # msg = await interaction.original_response()
+        # pagination_tracker[msg.id] = 0
+        # await msg.add_reaction('⬅️')
+        # await msg.add_reaction('➡️')
         await interaction.response.send_message(f"Showing odds for {game}!")
+    elif type == "arbs":
+        await interaction.response.send_message(f"Showing best oppourtunities for {game}!")
+    else:
+        await interaction.response.send_message(f"Invalid command. Please check /help.")
     
     
     
@@ -195,13 +211,6 @@ async def on_message(message):
     # Avoid the bot responding to itself
     if message.author == bot.user:
         return
-
-    # Check for the specific phrase
-    if message.content == TRIGGER_PHRASE:
-        # Add a reaction to the message (using emoji)
-        await message.add_reaction('👋')  # Wave emoji
-        await message.channel.send('Hello! 👋')  # Bot's reply
-        print('Trigger phrase detected!')
     
     # Allow the bot to process commands
     await bot.process_commands(message)
