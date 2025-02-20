@@ -4,6 +4,7 @@ from bs4 import BeautifulSoup
 import requests
 import pandas as pd
 import numpy as np
+import textwrap
 import re
 
 from .utils.extractor import extractor
@@ -19,7 +20,7 @@ class vlr_engine():
         self._oddsDf.index.name = 'MatchID'
         
         # Initializing Arbitrage Dataframe
-        self._arbDf = pd.DataFrame(columns=['MatchID', 'Team A', 'Team B', 'Bet Type', 'Best Return A', 'Best Return B', 'Best Site A', 'Best Site B', 'Composite Percentage', 'Site A Link', 'Site B Link'])
+        self._arbDf = pd.DataFrame()
         self._arbDf.index.name = 'MatchID'
         
         self.extractor = extractor()
@@ -82,9 +83,9 @@ class vlr_engine():
     
     # Update the odds dataframe
     def update_odds(self):
-        self._oddsDf = pd.read_csv('odds.csv')
-        # self._oddsDf = self.extractor.get_all(self._eventDf)
-        # self._oddsDf.to_csv('odds.csv', index=False)
+        #self._oddsDf = pd.read_csv('odds.csv')
+        self._oddsDf = self.extractor.get_all(self._eventDf)
+        #self._oddsDf.to_csv('odds.csv', index=False)
         print("🟢 Updated and saved Odds dataframe.")
     
     # Returns existing odds dataframe
@@ -92,6 +93,8 @@ class vlr_engine():
         return self._oddsDf
     
     def update_arbs(self):
+        self._arbDf = pd.DataFrame()
+        self._arbDf.index.name = 'MatchID'
         match_list = list(set(self._oddsDf['MatchID'].to_list()))
         type_list = list(set(self._oddsDf['Bet Type'].to_list()))
         for betType in type_list:
@@ -109,7 +112,7 @@ class vlr_engine():
                 print(f'Best Odds: {maxARow["Bet Return A"]:.3f} vs {maxBRow["Bet Return B"]:.3f} ({maxARow["Bet Website"]} vs {maxBRow["Bet Website"]})')
                 print(f'Composite Percentage: {composite:.2f}%')
                 tempDf = pd.DataFrame({'MatchID': [matchID], 'Team A': [maxARow["Team A"]], 'Team B': [maxBRow["Team B"]], 'Bet Type': [betType], 'Best Return A': [maxARow["Bet Return A"]], 'Best Return B': [maxBRow["Bet Return B"]], 'Best Site A': [maxARow["Bet Website"]], 'Best Site B': [maxBRow["Bet Website"]], 'Composite Percentage': [composite], 'Site A Link': [maxARow["Bet Link"]], 'Site B Link': [maxBRow["Bet Link"]]})
-                arbDf = pd.concat([arbDf, tempDf], ignore_index=True)
+                self._arbDf = pd.concat([self._arbDf, tempDf], ignore_index=True)
                 if composite < 100:
                     teamARatio = 1/maxARow["Bet Return A"] * composite
                     teamBRatio = 1/maxBRow["Bet Return B"] * composite
@@ -119,9 +122,12 @@ class vlr_engine():
                 else:
                     print('🔴 No Arbitrage Opportunity...')
         # Using index of arbDf, get the match Datetime from matchDf
-        arbDf = arbDf.join(self._eventDf['Datetime'], on='MatchID')
-        return arbDf
+        #self._arbDf.to_csv('arbs.csv', index=False)
+        self._arbDf = self._arbDf.join(self._eventDf[['Datetime', 'Match Link']], on='MatchID')
+        return self._arbDf
     
+    def get_arbs(self):
+        return self._arbDf
     
     def __del__(self):
         del self.extractor

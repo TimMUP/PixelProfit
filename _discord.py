@@ -37,6 +37,7 @@ async def on_ready():
     try:
         valorant.update_matches()
         valorant.update_odds()
+        valorant.update_arbs()
     except Exception as e:
         print('An error occurred while updating matches:', e)
 
@@ -125,13 +126,12 @@ def generate_match_embed(matches, state):
     embed.set_footer(text=f"Showing matches {state} to {min(state + 5, matches.shape[0])} of {matches.shape[0]}")
     return embed
 
-# Helper function to generate match embeds
-def generate_arbs_embed(odds, state):
+def generate_odds_embed(odds, state):
     embed = discord.Embed(title=f"**VALORANT** Upcoming Matches", color=0x03f8fc)
-    updated_matches = odds.sort_values(by='Datetime').iloc[state:min(state + 5, odds.shape[0])]
+    updated_matches = odds.sort_values(by='Composite Percentage').iloc[state:min(state + 5, odds.shape[0])]
     for row in updated_matches.iterrows():
         match = row[1]
-        embed.add_field(name=f"{match['Event Series']}", value=f"{match['Event']}\n{match['Datetime']}\n[{match['Team A']} vs {match['Team B']}]({match['Match Link']})", inline=False)
+        embed.add_field(name=f"[{match['MatchID']}] ({match['Bet Type']}) w/ Odds @ {match['Composite Percentage']:.2f} {':face_with_monocle:' if match['Composite Percentage'] < 100 else ''}", value=f"{match['Team A']} for {match['Best Return A']} @ [{match['Best Site A']}]({match['Site A Link']})\n{match['Team B']} for {match['Best Return B']} @ [{match['Best Site B']}]({match['Site B Link']})\n[{match['Team A']} vs {match['Team B']}]({match['Match Link']})", inline=False)
     embed.set_footer(text=f"Showing matches {state} to {min(state + 5, odds.shape[0])} of {odds.shape[0]}")
     return embed
 
@@ -186,16 +186,52 @@ async def get(interaction: discord.Interaction, type: str, game: str='valorant')
             except TimeoutError:
                 break
     elif type == "odds":
-        updated_odds = valorant.get_odds()
+        updated_odds = valorant.get_arbs()
         
-        updated_odds.head()
-        # embed = generate_match_embed(updated_odds, 0)
-        # await interaction.response.send_message(embed = embed)
-        # msg = await interaction.original_response()
-        # pagination_tracker[msg.id] = 0
-        # await msg.add_reaction('⬅️')
-        # await msg.add_reaction('➡️')
-        await interaction.response.send_message(f"Showing odds for {game}!")
+        embed = generate_odds_embed(updated_odds, 0)
+        await interaction.response.send_message(embed = embed)
+        msg = await interaction.original_response()
+        pagination_tracker[msg.id] = 0
+        await msg.add_reaction('⬅️')
+        await msg.add_reaction('➡️')
+        
+        def check(reaction, user):
+            return (
+                reaction.message.id == msg.id and
+                (str(reaction.emoji) == "⬅️" or str(reaction.emoji) == "➡️") and
+                user != bot.user  # Ensure the bot's own reactions are ignored
+            )
+        
+        timeout = 30
+        # Handling Pagination Buttons
+        while True:
+            try:
+                reaction, user = await bot.wait_for("reaction_add", timeout=timeout, check=check)
+                timeout = 30
+                message = reaction.message
+                if message.id not in pagination_tracker:
+                    return
+                
+                state = pagination_tracker[message.id]
+                if reaction.emoji == '⬅️':
+                    print('left')
+                    state = max(0, state - 5)
+                elif reaction.emoji == '➡️':
+                    print('right')
+                    if state + 5 > valorant.get_odds().shape[0]:
+                        await msg.remove_reaction(reaction.emoji, user)
+                        continue
+                    state = max(0, state + 5)
+                else:
+                    return
+                
+                embed = generate_odds_embed(updated_odds, state)
+                await msg.edit(embed=embed)
+                await msg.remove_reaction(reaction.emoji, user)
+                
+                pagination_tracker[message.id] = state
+            except TimeoutError:
+                break
     elif type == "arbs":
         await interaction.response.send_message(f"Showing best oppourtunities for {game}!")
     else:
