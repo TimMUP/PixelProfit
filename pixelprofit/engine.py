@@ -16,7 +16,7 @@ class vlr_engine():
         self._eventDf.index.name = "MatchID"
         
         # Initializing Odds Dataframe
-        self._oddsDf = pd.DataFrame({'MatchID': pd.Series(dtype='str'), 'Team A': pd.Series(dtype='str'), 'Team B': pd.Series(dtype='str'), 'Bet Type': pd.Series(dtype='str'), 'Bet Return A': pd.Series(dtype='float'), 'Bet Return B': pd.Series(dtype='float'), 'Bet Website': pd.Series(dtype='str'), 'Bet Link': pd.Series(dtype='str')})
+        self._oddsDf = pd.DataFrame({'MatchID': pd.Series(dtype='str'), 'Team A': pd.Series(dtype='str'), 'Team B': pd.Series(dtype='str'), 'Bet Type': pd.Series(dtype='str'), 'Bet Return A': pd.Series(dtype='float'), 'Bet Return B': pd.Series(dtype='float'), 'Bet Website': pd.Series(dtype='str'), 'Bet Link': pd.Series(dtype='str'), 'Data Datetime': pd.Series(dtype='datetime64[ns]')})
         self._oddsDf.index.name = 'MatchID'
         
         # Initializing Arbitrage Dataframe
@@ -121,8 +121,7 @@ class vlr_engine():
                     print(f'🟢 Arbitrage Opportunity! Ratio {teamARatio:.2f}:{teamBRatio:.2f} -> {100-composite:.2f}')
                 else:
                     print('🔴 No Arbitrage Opportunity...')
-        # Using index of arbDf, get the match Datetime from matchDf
-        #self._arbDf.to_csv('arbs.csv', index=False)
+
         self._arbDf = self._arbDf.join(self._eventDf[['Datetime', 'Match Link']], on='MatchID')
         return self._arbDf
     

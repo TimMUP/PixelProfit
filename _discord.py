@@ -1,5 +1,4 @@
 from pixelprofit import *
-import tabulate
 import asyncio
 import discord
 import os

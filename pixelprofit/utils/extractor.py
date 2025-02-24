@@ -31,14 +31,14 @@ class extractor():
         self.driver.quit()
         
     def get_all(self, matchDf: pd.DataFrame):
-        betDf = pd.DataFrame({'MatchID': pd.Series(dtype='str'), 'Team A': pd.Series(dtype='str'), 'Team B': pd.Series(dtype='str'), 'Bet Type': pd.Series(dtype='str'), 'Bet Return A': pd.Series(dtype='float'), 'Bet Return B': pd.Series(dtype='float'), 'Bet Website': pd.Series(dtype='str'), 'Bet Link': pd.Series(dtype='str')})
+        betDf = pd.DataFrame({'MatchID': pd.Series(dtype='str'), 'Team A': pd.Series(dtype='str'), 'Team B': pd.Series(dtype='str'), 'Bet Type': pd.Series(dtype='str'), 'Bet Return A': pd.Series(dtype='float'), 'Bet Return B': pd.Series(dtype='float'), 'Bet Website': pd.Series(dtype='str'), 'Bet Link': pd.Series(dtype='str'), 'Data Datetime': pd.Series(dtype='datetime64[ns]'), 'Data Source': pd.Series(dtype='str')})
         betDf = pd.concat([betDf, self.get_pinnacle(matchDf)], ignore_index=True)
         betDf = pd.concat([betDf, self.get_vlrgg(matchDf)], ignore_index=True)
+        betDf.join(matchDf[['Datetime', 'Match Link']], on='MatchID')
         return betDf
         
     def get_pinnacle(self, matchDf: pd.DataFrame):
         actions = ActionChains(self.driver)
-
         # Navigate to the target URL
         url = 'https://www.pinnacle.com/en/esports/games/valorant/matchups'
         self.driver.get(url)
@@ -50,33 +50,7 @@ class extractor():
         matchItems = temp_soup.find_all('div', class_=re.compile(r'^row-'))
         for item in matchItems:
             matchList.add(item)
-                
-        # matchListElement = self.driver.find_element(By.ID, "events-chunkmode")
-        # last_scroll_position = 0
-        # actions.move_to_element_with_offset(matchListElement, matchListElement.size['width']/2 - 2, 0).click()
 
-        # while True:
-        #     html_in_view = matchListElement.get_attribute('innerHTML')
-        #     temp_soup = BeautifulSoup(html_in_view, 'html.parser')
-        #     old_set = matchList.copy()
-            
-        #     matchItems = temp_soup.find_all('div', class_='scrollbar-item')
-        #     for item in matchItems:
-        #         matchList.add(item)
-            
-        #     delta_y = matchListElement.size['height']
-        #     for i in range(10):
-        #         actions.send_keys(Keys.DOWN).perform()
-        #     #actions.move_to_element(matchListElement).scroll_by_amount(0, delta_y).perform()
-        #     #actions.move_to_element(matchListElement).click().send_keys(Keys.PAGE_DOWN).perform()
-        #     #driver.execute_script(f"arguments[0].scrollTop += {delta_y}", matchListElement)
-        #     time.sleep(1)  # Allow time for new content to load
-
-            
-        #     if matchList == old_set:
-        #         break  # Exit if no more content to scroll
-
-        # Add a column to the DataFrame that is a concatenation of the two team names lower case and spaces removed
         matchDf['Team Concat'] = matchDf['Team A'].str.lower().str.replace(' ', '') + matchDf['Team B'].str.lower().str.replace(' ', '')
 
         pinnacleTeamLUT = {
@@ -84,8 +58,8 @@ class extractor():
             'Alpha D': 'esports team αD'
         }
 
-        betDf = pd.DataFrame({'MatchID': pd.Series(dtype='str'), 'Team A': pd.Series(dtype='str'), 'Team B': pd.Series(dtype='str'), 'Bet Type': pd.Series(dtype='str'), 'Bet Return A': pd.Series(dtype='float'), 'Bet Return B': pd.Series(dtype='float'), 'Bet Website': pd.Series(dtype='str'), 'Bet Link': pd.Series(dtype='str')})
-
+        betDf = pd.DataFrame({'MatchID': pd.Series(dtype='str'), 'Team A': pd.Series(dtype='str'), 'Team B': pd.Series(dtype='str'), 'Bet Type': pd.Series(dtype='str'), 'Bet Return A': pd.Series(dtype='float'), 'Bet Return B': pd.Series(dtype='float'), 'Bet Website': pd.Series(dtype='str'), 'Bet Link': pd.Series(dtype='str'), 'Data Datetime': pd.Series(dtype='datetime64[ns]')})
+        
         for match in matchList:
             matchData = match.find_all(string=True)
             pattern = r'^(.*?)\s*\(([^)]+)\)'
@@ -146,6 +120,9 @@ class extractor():
             
             tempDf = pd.DataFrame({'MatchID': [matchID], 'Team A': [teamA], 'Team B': [teamB], 'Bet Type': [betType], 'Bet Return A': [teamA_odds], 'Bet Return B': [teamB_odds], 'Bet Website': 'pinnacle', 'Bet Link': [betting_link]})
             betDf = pd.concat([betDf, tempDf], ignore_index=True)
+        
+        betDf['Data Datetime'] = pd.Timestamp.now()
+        betDf['Data Source'] = 'Pinnacle'
         return betDf
     
     def get_vlrgg(self, matchDf: pd.DataFrame, delay: int = .2):
@@ -192,7 +169,10 @@ class extractor():
             if len(matchBetDf) > 0:
                 # Append to main DataFrame
                 betDf = pd.concat([betDf, matchBetDf], ignore_index=True)
+                
         betDf['Bet Type'] = 'Match'
+        betDf['Data Datetime'] = pd.Timestamp.now()
+        betDf['Data Source'] = 'VLR.gg'
         return betDf
         
 
