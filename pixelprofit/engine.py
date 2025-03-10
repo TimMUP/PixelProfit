@@ -26,7 +26,7 @@ class vlr_engine():
         self.extractor = extractor()
     
     # Update the matches dataframe
-    def update_matches(self, include_tbd=False, include_running=False):
+    def update_matches(self, include_tbd=False, include_running=False, range=1):
         page_count = 1
         while True:
             target_url = f"https://www.vlr.gg/matches/?page={page_count}"
@@ -74,6 +74,10 @@ class vlr_engine():
         # Filter out currently running matches
         if not include_running:
             self._eventDf = self._eventDf[self._eventDf['Datetime'] > dt.now()]
+            
+        # Filter out matches that are <range> months away
+        if range > 0:
+            self._eventDf = self._eventDf[self._eventDf['Datetime'] < dt.now() + pd.DateOffset(months=range)]
 
         return self._eventDf
     

@@ -58,7 +58,7 @@ class extractor():
             'Alpha D': 'esports team αD'
         }
 
-        betDf = pd.DataFrame({'MatchID': pd.Series(dtype='str'), 'Team A': pd.Series(dtype='str'), 'Team B': pd.Series(dtype='str'), 'Bet Type': pd.Series(dtype='str'), 'Bet Return A': pd.Series(dtype='float'), 'Bet Return B': pd.Series(dtype='float'), 'Bet Website': pd.Series(dtype='str'), 'Bet Link': pd.Series(dtype='str'), 'Data Datetime': pd.Series(dtype='datetime64[ns]')})
+        bet_data = []
         
         for match in matchList:
             matchData = match.find_all(string=True)
@@ -118,25 +118,25 @@ class extractor():
             print(f'pinnacle - {teamA_odds} vs {teamB_odds} @ {betting_link}')
             matchDf.at[matchID, 'Pinnacle Odds'] = matchData[2]
             
-            tempDf = pd.DataFrame({'MatchID': [matchID], 'Team A': [teamA], 'Team B': [teamB], 'Bet Type': [betType], 'Bet Return A': [teamA_odds], 'Bet Return B': [teamB_odds], 'Bet Website': 'pinnacle', 'Bet Link': [betting_link]})
-            betDf = pd.concat([betDf, tempDf], ignore_index=True)
+            bet_data.append({'MatchID': matchID, 'Team A': teamA, 'Team B': teamB, 'Bet Type': betType, 'Bet Return A': teamA_odds, 'Bet Return B': teamB_odds, 'Bet Website': 'pinnacle', 'Bet Link': betting_link})
         
+        betDf = pd.DataFrame(bet_data)
         betDf['Data Datetime'] = pd.Timestamp.now()
         betDf['Data Source'] = 'Pinnacle'
         return betDf
     
     def get_vlrgg(self, matchDf: pd.DataFrame, delay: int = .2):
         matchDf = matchDf.reset_index().to_dict('records')
-        betDf = pd.DataFrame({'MatchID': pd.Series(dtype='str'), 'Team A': pd.Series(dtype='str'), 'Team B': pd.Series(dtype='str'), 'Bet Return A': pd.Series(dtype='float'), 'Bet Return B': pd.Series(dtype='float'), 'Bet Website': pd.Series(dtype='str'), 'Bet Link': pd.Series(dtype='str')})
+        bet_data = []
 
         for match in matchDf:
             time.sleep(np.abs(np.random.normal(delay, delay/2)))
-            matchBetDf = pd.DataFrame({'MatchID': pd.Series(dtype='str'), 'Team A': pd.Series(dtype='str'), 'Team B': pd.Series(dtype='str'), 'Bet Return A': pd.Series(dtype='float'), 'Bet Return B': pd.Series(dtype='float'), 'Bet Website': pd.Series(dtype='str'), 'Bet Link': pd.Series(dtype='str')})
+            matchBetData = []
 
             MatchID = match['MatchID']
             page_data = requests.get(match['Match Link'])
             page_soup = BeautifulSoup(page_data.content, 'html.parser')
-            print(f'🔵 [{MatchID}] {match['Team A']} vs {match['Team B']}')
+            print(f'🔵 [{MatchID}] {match["Team A"]} vs {match["Team B"]}')
 
             bet_items = page_soup.find_all('a', class_='wf-card mod-dark match-bet-item')
             for item in bet_items:
@@ -162,17 +162,16 @@ class extractor():
                         break
                     print(f'{betting_site} - {teamA_odds} - {teamB_odds} @ {betting_link}')
                 
-                    tempDf = pd.DataFrame({'MatchID': [MatchID], 'Team A': [teamA], 'Team B': [teamB], 'Bet Return A': [teamA_odds], 'Bet Return B': [teamB_odds], 'Bet Website': [betting_site], 'Bet Link': [betting_link]})
-                    
-                    matchBetDf = pd.concat([matchBetDf, tempDf], ignore_index=True)
+                    matchBetData.append({'MatchID': MatchID, 'Team A': teamA, 'Team B': teamB, 'Bet Return A': teamA_odds, 'Bet Return B': teamB_odds, 'Bet Website': betting_site, 'Bet Link': betting_link})
                 
-            if len(matchBetDf) > 0:
-                # Append to main DataFrame
-                betDf = pd.concat([betDf, matchBetDf], ignore_index=True)
+            if len(matchBetData) > 0:
+                # Append to main data list
+                bet_data.extend(matchBetData)
                 
+        betDf = pd.DataFrame(bet_data)
         betDf['Bet Type'] = 'Match'
         betDf['Data Datetime'] = pd.Timestamp.now()
         betDf['Data Source'] = 'VLR.gg'
         return betDf
-        
+
 
